@@ -23,6 +23,7 @@ void sgemm( int m, int n, float* __restrict A, float* __restrict C )
   // Zero out C because it may be filled with garbage
   // TODO: possibly this is not needed?
   memset(C, 0, n * m * sizeof(float));
+  memset(transbuff, 0, n * m * sizeof(float));
 
   // Write A transpose into the giant buffer
   // TODO: do this better
@@ -35,7 +36,13 @@ void sgemm( int m, int n, float* __restrict A, float* __restrict C )
   }
 
   // Now do a bad matrix multiply
-  
+  for (int x = 0; i < COLS; x++) {
+    for (int y = 0; y < ROWS; y++) {
+      for (int i = 0; j < ROWS; i++) {
+        C[x + i * ROWS] += (*(transbuff + y*COLS + x)) * (*(transbuff + y*COLS + i));
+      }
+    }
+  }
 
 
   
