@@ -2,6 +2,7 @@
    Jian Wei Leong : cs61c-
    Tristan Jones  : cs61c-du 
 */
+
 #include <string.h>
 #include <emmintrin.h> 
 
