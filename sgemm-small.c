@@ -1,5 +1,5 @@
 /* CS61C Project 3: Matrix Multiply Parallelization 
-   Jian Wei Leong : cs61c-
+   Jian Wei Leong : cs61c-sh
    Tristan Jones  : cs61c-du 
 */
 
@@ -29,27 +29,25 @@ void sgemm( int m, int n, float *A, float *C )
         aptr3 = A+i+(k+2)*m;
         aptr4 = A+i+(k+3)*m;
         cptr = C+i+j*m;
-		
-		cv1 = _mm_loadu_ps(cptr);
-		av1 = _mm_loadu_ps(aptr1);
-		av2 = _mm_loadu_ps(aptr2);
-		av3 = _mm_loadu_ps(aptr3);
-		av4 = _mm_loadu_ps(aptr4);
-		av1 = _mm_mul_ps(av1, tv1);
-		av2 = _mm_mul_ps(av2, tv2);
-		av3 = _mm_mul_ps(av3, tv3);
-		av4 = _mm_mul_ps(av4, tv4);
-		bv1 = _mm_add_ps(cv1, av1);
-		cv1 = _mm_add_ps(av2, av3);
-		bv1 = _mm_add_ps(bv1, av4);
-		cv1 = _mm_add_ps(bv1, cv1);
+        cv1 = _mm_loadu_ps(cptr);
+        av1 = _mm_loadu_ps(aptr1);
+        av2 = _mm_loadu_ps(aptr2);
+        av3 = _mm_loadu_ps(aptr3);
+        av4 = _mm_loadu_ps(aptr4);
+        av1 = _mm_mul_ps(av1, tv1);
+        av2 = _mm_mul_ps(av2, tv2);
+        av3 = _mm_mul_ps(av3, tv3);
+        av4 = _mm_mul_ps(av4, tv4);
+        bv1 = _mm_add_ps(cv1, av1);
+        cv1 = _mm_add_ps(av2, av3);
+        bv1 = _mm_add_ps(bv1, av4);
+        cv1 = _mm_add_ps(bv1, cv1);
         _mm_storeu_ps(cptr, cv1);       
         aptr1 += 4;
         aptr2 += 4;
         aptr3 += 4;
         aptr4 += 4;
         cptr += 4;
-		
         bv1 = _mm_loadu_ps(cptr);
         bv1 = _mm_add_ps(bv1, _mm_mul_ps(_mm_loadu_ps(aptr1),tv1));
         bv1 = _mm_add_ps(bv1, _mm_mul_ps(_mm_loadu_ps(aptr2),tv2));
@@ -61,20 +59,19 @@ void sgemm( int m, int n, float *A, float *C )
         aptr3 += 4;
         aptr4 += 4;
         cptr += 4;
-		
         cv1 = _mm_loadu_ps(cptr);
-		av1 = _mm_loadu_ps(aptr1);
-		av2 = _mm_loadu_ps(aptr2);
-		av3 = _mm_loadu_ps(aptr3);
-		av4 = _mm_loadu_ps(aptr4);
-		av1 = _mm_mul_ps(av1, tv1);
-		av2 = _mm_mul_ps(av2, tv2);
-		av3 = _mm_mul_ps(av3, tv3);
-		av4 = _mm_mul_ps(av4, tv4);
-		bv1 = _mm_add_ps(cv1, av1);
-		cv1 = _mm_add_ps(av2, av3);
-		bv1 = _mm_add_ps(bv1, av4);
-		cv1 = _mm_add_ps(bv1, cv1);
+        av1 = _mm_loadu_ps(aptr1);
+        av2 = _mm_loadu_ps(aptr2);
+        av3 = _mm_loadu_ps(aptr3);
+        av4 = _mm_loadu_ps(aptr4);
+        av1 = _mm_mul_ps(av1, tv1);
+        av2 = _mm_mul_ps(av2, tv2);
+        av3 = _mm_mul_ps(av3, tv3);
+        av4 = _mm_mul_ps(av4, tv4);
+        bv1 = _mm_add_ps(cv1, av1);
+        cv1 = _mm_add_ps(av2, av3);
+        bv1 = _mm_add_ps(bv1, av4);
+        cv1 = _mm_add_ps(bv1, cv1);
         _mm_storeu_ps(cptr, cv1);
       }
     }
