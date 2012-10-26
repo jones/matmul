@@ -28,7 +28,7 @@ void sgemm( int m, int n, float *A, float *C )
     cjl = cj+nblocksize;
     for (ci=0; ci<mblkbtm; ci=cil){ // Do normal NxM-size blocks
       cil = ci+mblocksize;
-      for (ak=0; ak<nbtm; ak+=4){ // Do up to 4k (guaranteed to complete if 4|N)
+      for (ak=0; ak<nbtm; ak+=4){ // Do up to 4k
         for (aj=cj; aj<cjl; aj++){
           tv1 = _mm_load1_ps(A+aj+ak*m);
           tv2 = _mm_load1_ps(A+aj+(ak+1)*m);
@@ -67,6 +67,28 @@ void sgemm( int m, int n, float *A, float *C )
             cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr2),tv2));
             cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr3),tv3));
             cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr4),tv4));
+            _mm_storeu_ps(cptr, cv);
+          }
+        }
+      }
+      for (; ak<n; ak++){ // Do remaining k
+        for (aj=cj; aj<cjl; aj++){
+          tv1 = _mm_load1_ps(A+aj+ak*m);
+          for (ai=ci; ai<cil; ai+=12){ // Do up to 12i (guaranteed to complete if 12|M)
+            aptr1 = A+ai+ak*m;
+            cptr = C+ai+aj*m;
+            cv = _mm_loadu_ps(cptr);
+            cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr1),tv1));
+            _mm_storeu_ps(cptr, cv);
+            aptr1 += 4;
+            cptr += 4;
+            cv = _mm_loadu_ps(cptr);
+            cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr1),tv1));
+            _mm_storeu_ps(cptr, cv);
+            aptr1 += 4;
+            cptr += 4;
+            cv = _mm_loadu_ps(cptr);
+            cv = _mm_add_ps(cv, _mm_mul_ps(_mm_loadu_ps(aptr1),tv1));
             _mm_storeu_ps(cptr, cv);
           }
         }
