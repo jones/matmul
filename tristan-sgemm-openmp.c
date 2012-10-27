@@ -1,25 +1,33 @@
+
+
+
+
 /* CS61C Project 3: Matrix Multiply Parallelization 
    Jian Wei Leong : cs61c-sh
    Tristan Jones  : cs61c-du 
-*/
+ */
 
-#include <emmintrin.h> 
+#include <emmintrin.h>
 
+//#pragma GCC optimize (2,"unroll-all-loops", "fast-math","unsafe-loop-optimizations")
 void sgemm( int m, int n, float *A, float *C )
 {
   register int mdiv20 = (m/20)*20;
   int ndiv5 = (n/5)*5;
+  register int val20 = 20;
+  int xi;
 
   float *aj, *ai, *ci;
   float *a1, *a2, *a3, *a4, *a5;
 
+  //float* cptr;
+  //float* aii, *aii + m, *aii + 2*m, *aii + 3*m, *aii + 4*m;
+
   __m128 va1, va2, va3, va4, va5;
-  __m128 vc1;
-
-
+  __m128 vc1, vc2, vc3, vc4, vc5;
 
   #pragma omp parallel
-  #pragma omp for private (va1, va2, va3, va4, va5, vc1, aj, ai, ci, a1, a2, a3, a4, a5)
+  #pragma omp for private (va1, va2, va3, va4, va5, vc1, vc2, vc3, vc4, vc5, aj, ai, ci, xi, a1, a2, a3, a4, a5)
   for (int j=0; j<m; j++)
   {
     aj = A + j;
@@ -32,57 +40,75 @@ void sgemm( int m, int n, float *A, float *C )
       va4 = _mm_load1_ps(aj+(k+3)*m);
       va5 = _mm_load1_ps(aj+(k+4)*m);
 
-      for (int i=0; i<mdiv20; i+=20)
+      ai = A + k * m;
+      a1 = ai;
+      a2 = ai + m;
+      a3 = ai + 2*m;
+      a4 = ai + 3*m;
+      a5 = ai + 4*m;
+
+
+      for (int i=0; i<mdiv20; i+=val20)
       {     
-        float *aii = ai + i;
+        //float *aii = ai + i;
         float *cii = ci + i;
+        xi = 4;
 
-        __m128 vc1 = _mm_loadu_ps(cii);
-        __m128 vc2 = _mm_loadu_ps(cii + 4);
-        __m128 vc3 = _mm_loadu_ps(cii + 8);
-        __m128 vc4 = _mm_loadu_ps(cii + 12);
-        __m128 vc5 = _mm_loadu_ps(cii + 16);
-
-        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(aii),va1));
-        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(aii + m),va2));
-        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(aii + 2*m),va3));
-        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(aii + 3*m),va4));
-        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(aii + 4*m),va5));
-
-
-        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(aii + 4),va1));
-        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(aii + m + 4),va2));
-        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(aii + 2*m + 4),va3));
-        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(aii + 3*m + 4),va4));
-        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(aii + 4*m + 4),va5));
-
-
-        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(aii + 8),va1));
-        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(aii + m + 8),va2));
-        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(aii + 2*m + 8),va3));
-        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(aii + 3*m + 8),va4));
-        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(aii + 4*m + 8),va5));
-
-
-        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(aii + 12),va1));
-        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(aii + m + 12),va2));
-        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(aii + 2*m + 12),va3));
-        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(aii + 3*m + 12),va4));
-        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(aii + 4*m + 12),va5));
-
-
-        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(aii + 16),va1));
-        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(aii + m + 16),va2));
-        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(aii + 2*m + 16),va3));
-        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(aii + 3*m + 16),va4));
-        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(aii + 4*m + 16),va5));
-
+        vc1 = _mm_loadu_ps(cii);
+        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1),va1));
+        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2),va2));
+        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3),va3));
+        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4),va4));
+        vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5),va5));
         _mm_storeu_ps(cii, vc1);
-        _mm_storeu_ps(cii + 4, vc2);
-        _mm_storeu_ps(cii + 8, vc3);
-        _mm_storeu_ps(cii + 12, vc4);
-        _mm_storeu_ps(cii + 16, vc5);
+
+
+        vc2 = _mm_loadu_ps(cii + xi);
+        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a1 + xi),va1));
+        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + xi),va2));
+        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a3 + xi),va3));
+        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + xi),va4));
+        vc2 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a5 + xi),va5));
+        _mm_storeu_ps(cii + xi, vc2);
+        xi += 4;
+
+        vc3 = _mm_loadu_ps(cii + xi);
+        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(a1 + xi),va1));
+        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(a2 + xi),va2));
+        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(a3 + xi),va3));
+        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(a4 + xi),va4));
+        vc3 = _mm_add_ps(vc3, _mm_mul_ps(_mm_loadu_ps(a5 + xi),va5));
+        _mm_storeu_ps(cii + xi, vc3);
+        xi += 4;
+
+        vc4 = _mm_loadu_ps(cii + xi);
+        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(a1 + xi),va1));
+        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(a2 + xi),va2));
+        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(a3 + xi),va3));
+        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(a4 + xi),va4));
+        vc4 = _mm_add_ps(vc4, _mm_mul_ps(_mm_loadu_ps(a5 + xi),va5));
+        _mm_storeu_ps(cii + xi, vc4);
+        xi += 4;
+
+        vc5 = _mm_loadu_ps(cii + xi);
+        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(a1 + xi),va1));
+        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(a2 + xi),va2));
+        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(a3 + xi),va3));
+        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(a4 + xi),va4));
+        vc5 = _mm_add_ps(vc5, _mm_mul_ps(_mm_loadu_ps(a5 + xi),va5));
+        _mm_storeu_ps(cii + xi, vc5);
+
+        a1 += val20;
+        a2 += val20;
+        a3 += val20;
+        a4 += val20;
+        a5 += val20;
       }
     }
   }
 }
+
+
+
+
+
