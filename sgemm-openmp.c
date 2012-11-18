@@ -4,215 +4,565 @@
  */
 #include <emmintrin.h>
 
-#pragma GCC optimize ("unsafe-loop-optimizations", "fast-math", "fp-contract=on", "ira-loop-pressure", "sched-pressure")
+#pragma GCC optimize ("unsafe-loop-optimizations", "unroll-loops", "fast-math", "fp-contract=on", "ira-loop-pressure", "sched-pressure", "align-loops=16")
 void
-sgemm(const int m, const int n, float* __restrict__ A, float* __restrict__ C)
+sgemm(const int m, const int n, float* const __restrict__ A, float* const __restrict__ C)
 {
- float *a1, *a2, *a3, *a4, *a5, *c1;
 
- __m128 va1, va2, va3, va4, va5;
- __m128 vc1, vc2;
-
- #pragma omp parallel for private (va1, va2, va3, va4, va5, vc1, vc2, a1, a2, a3, a4, a5, c1) schedule(dynamic, 1)
- for (int j = 0; j < m; j++)
+#pragma omp parallel
   {
-   float* aj = A + j;
-   float* ci = C + j * m;
-   int k;
-   for (k = 0; k < (n / 5) * 5; k += 5)
+#pragma omp for schedule(dynamic, 1)
+   for (int j = 0; j < (m / 2) * 2; j += 2)
     {
-     int km = k * m;
-     va1 = _mm_load1_ps(aj + km);
-     va2 = _mm_load1_ps(aj + km + m);
-     va3 = _mm_load1_ps(aj + km + 2 * m);
-     va4 = _mm_load1_ps(aj + km + 3 * m);
-     va5 = _mm_load1_ps(aj + km + 4 * m);
+     float *a1, *a2, *a3, *a4, *c1, *c2;
 
-     float* ai = A + k * m;
-     c1 = ci;
-     a1 = ai;
-     a2 = ai + m;
-     a3 = ai + 2 * m;
-     a4 = ai + 3 * m;
-     a5 = ai + 4 * m;
+     float* const aj = A + j;
+     float* const ci = C + j * m;
 
-     int i;
-     for (i = 0; i < (m / 32) * 32; i += 32)
+     int k;
+     for (k = 0; k < (n / 4) * 4; k += 4)
       {
-       vc1 = _mm_loadu_ps(c1);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5), va5));
-       _mm_storeu_ps(c1, vc2);
+       int const km = k * m;
+       __m128 vc1, vc2, vt1, vt2;
+       __m128 va1 = _mm_load1_ps(aj + km);
+       __m128 vb1 = _mm_load1_ps(aj + km + 1);
+       __m128 va2 = _mm_load1_ps(aj + km + m);
+       __m128 vb2 = _mm_load1_ps(aj + km + m + 1);
+       __m128 va3 = _mm_load1_ps(aj + km + 2 * m);
+       __m128 vb3 = _mm_load1_ps(aj + km + 2 * m + 1);
+       __m128 va4 = _mm_load1_ps(aj + km + 3 * m);
+       __m128 vb4 = _mm_load1_ps(aj + km + 3 * m + 1);
 
-       vc1 = _mm_loadu_ps(c1 + 4);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 4), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 4), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 4), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 4), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 4), va5));
-       _mm_storeu_ps(c1 + 4, vc2);
+       float* const ai = A + km;
+       c1 = ci;
+       c2 = ci + m;
 
-       vc1 = _mm_loadu_ps(c1 + 8);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 8), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 8), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 8), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 8), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 8), va5));
-       _mm_storeu_ps(c1 + 8, vc2);
+       a1 = ai;
+       a2 = ai + m;
+       a3 = ai + 2 * m;
+       a4 = ai + 3 * m;
 
-       vc1 = _mm_loadu_ps(c1 + 12);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 12), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 12), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 12), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 12), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 12), va5));
-       _mm_storeu_ps(c1 + 12, vc2);
+       int i;
+       for (i = 0; i < (m / 32) * 32; i += 32)
+        {
+         // Offset 0
+         vt1 = _mm_loadu_ps(a1);
+         vc1 = _mm_loadu_ps(c1);
+         vc2 = _mm_loadu_ps(c2);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1, vc1);
+         _mm_storeu_ps(c2, vc2);
 
-       vc1 = _mm_loadu_ps(c1 + 16);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 16), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 16), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 16), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 16), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 16), va5));
-       _mm_storeu_ps(c1 + 16, vc2);
+         // Offset 4
+         vt1 = _mm_loadu_ps(a1 + 4);
+         vc1 = _mm_loadu_ps(c1 + 4);
+         vc2 = _mm_loadu_ps(c2 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 4, vc1);
+         _mm_storeu_ps(c2 + 4, vc2);
 
-       vc1 = _mm_loadu_ps(c1 + 20);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 20), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 20), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 20), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 20), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 20), va5));
-       _mm_storeu_ps(c1 + 20, vc2);
+         // Offset 8
+         vt1 = _mm_loadu_ps(a1 + 8);
+         vc1 = _mm_loadu_ps(c1 + 8);
+         vc2 = _mm_loadu_ps(c2 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 8, vc1);
+         _mm_storeu_ps(c2 + 8, vc2);
 
-       vc1 = _mm_loadu_ps(c1 + 24);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 24), va1));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 24), va2));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 24), va3));
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 24), va4));
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 24), va5));
-       _mm_storeu_ps(c1 + 24, vc2);
+         // Offset 12
+         vt1 = _mm_loadu_ps(a1 + 12);
+         vc1 = _mm_loadu_ps(c1 + 12);
+         vc2 = _mm_loadu_ps(c2 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 12, vc1);
+         _mm_storeu_ps(c2 + 12, vc2);
 
-       vc1 = _mm_loadu_ps(c1 + 28);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 28), va1));
-       a1 += 32;
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2 + 28), va2));
-       a2 += 32;
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 28), va3));
-       a3 += 32;
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4 + 28), va4));
-       a4 += 32;
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5 + 28), va5));
-       a5 += 32;
-       _mm_storeu_ps(c1 + 28, vc2);
-       c1 += 32;
+         // Offset 16
+         vt1 = _mm_loadu_ps(a1 + 16);
+         vc1 = _mm_loadu_ps(c1 + 16);
+         vc2 = _mm_loadu_ps(c2 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 16, vc1);
+         _mm_storeu_ps(c2 + 16, vc2);
+
+         // Offset 20
+         vt1 = _mm_loadu_ps(a1 + 20);
+         vc1 = _mm_loadu_ps(c1 + 20);
+         vc2 = _mm_loadu_ps(c2 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 20, vc1);
+         _mm_storeu_ps(c2 + 20, vc2);
+
+         // Offset 24
+         vt1 = _mm_loadu_ps(a1 + 24);
+         vc1 = _mm_loadu_ps(c1 + 24);
+         vc2 = _mm_loadu_ps(c2 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 + 24, vc1);
+         _mm_storeu_ps(c2 + 24, vc2);
+
+         // Offset 28
+         vt1 = _mm_loadu_ps(a1 + 28);
+         a1 += 32;
+         vc1 = _mm_loadu_ps(c1 + 28);
+         c1 += 32;
+         vc2 = _mm_loadu_ps(c2 + 28);
+         c2 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2 + 28);
+         a2 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3 + 28);
+         a3 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4 + 28);
+         a4 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1 - 4, vc1);
+         _mm_storeu_ps(c2 - 4, vc2);
+        }
+
+       for (; i < (m / 4) * 4; i += 4)
+        {
+         vt1 = _mm_loadu_ps(a1);
+         a1 += 4;
+         vc1 = _mm_loadu_ps(c1);
+         vc2 = _mm_loadu_ps(c2);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         vt2 = _mm_loadu_ps(a2);
+         a2 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va2));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb2));
+         vt1 = _mm_loadu_ps(a3);
+         a3 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va3));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb3));
+         vt2 = _mm_loadu_ps(a4);
+         a4 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt2, va4));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt2, vb4));
+         _mm_storeu_ps(c1, vc1);
+         c1 += 4;
+         _mm_storeu_ps(c2, vc2);
+         c2 += 4;
+        }
+
+//     float* as;
+//     asm("subq $16, %rsp");
+//     asm("movsd %0, 0(%rsp)" : : "x" (va1));
+//     asm("movw 0(%rsp), a1" : "=r" (as):);
+//     asm("addq $16, %rsp");
+
+       for (; i < m; i++)
+        {
+         float sum1, sum2, fa1, fa2, fa3, fa4;
+         fa1 = *a1;
+         sum1 = fa1 * (*(aj + km));
+         sum2 = fa1 * (*(aj + km + 1));
+         a1++;
+
+         fa2 = *a2;
+         sum1 += fa2 * (*(aj + km + m));
+         sum2 += fa2 * (*(aj + km + m + 1));
+         a2++;
+
+         fa3 = *a3;
+         sum1 += fa3 * (*(aj + km + 2 * m));
+         sum2 += fa3 * (*(aj + km + 2 * m + 1));
+         a3++;
+
+         fa4 = *a4;
+         sum1 += fa4 * (*(aj + km + 3 * m));
+         sum2 += fa4 * (*(aj + km + 3 * m + 1));
+         a4++;
+         *(ci + i) += sum1;
+         *(ci + i + m) += sum2;
+        }
       }
 
-     for (; i < (m / 4) * 4; i += 4)
+     for (; k < n; k++)
       {
-       vc1 = _mm_loadu_ps(c1);
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1), va1));
-       a1 += 4;
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a2), va2));
-       a2 += 4;
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3), va3));
-       a3 += 4;
-       vc1 = _mm_add_ps(vc2, _mm_mul_ps(_mm_loadu_ps(a4), va4));
-       a4 += 4;
-       vc2 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a5), va5));
-       a5 += 4;
-       _mm_storeu_ps(c1, vc2);
-       c1 += 4;
+       int const km = k * m;
+       __m128 vc1, vc2, vt1, vt2;
+       __m128 va1 = _mm_load1_ps(aj + km);
+       __m128 vb1 = _mm_load1_ps(aj + km + 1);
+       c1 = ci;
+       c2 = ci + m;
+       a1 = A + km;
+
+       int i;
+       for (i = 0; i < (m / 32) * 32; i += 32)
+        {
+         // Offset 0
+         vt1 = _mm_loadu_ps(a1);
+         vc1 = _mm_loadu_ps(c1);
+         vc2 = _mm_loadu_ps(c2);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1, vc1);
+         _mm_storeu_ps(c2, vc2);
+
+         // Offset 4
+         vt1 = _mm_loadu_ps(a1 + 4);
+         vc1 = _mm_loadu_ps(c1 + 4);
+         vc2 = _mm_loadu_ps(c2 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 4, vc1);
+         _mm_storeu_ps(c2 + 4, vc2);
+
+         // Offset 8
+         vt1 = _mm_loadu_ps(a1 + 8);
+         vc1 = _mm_loadu_ps(c1 + 8);
+         vc2 = _mm_loadu_ps(c2 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 8, vc1);
+         _mm_storeu_ps(c2 + 8, vc2);
+
+         // Offset 12
+         vt1 = _mm_loadu_ps(a1 + 12);
+         vc1 = _mm_loadu_ps(c1 + 12);
+         vc2 = _mm_loadu_ps(c2 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 12, vc1);
+         _mm_storeu_ps(c2 + 12, vc2);
+
+         // Offset 16
+         vt1 = _mm_loadu_ps(a1 + 16);
+         vc1 = _mm_loadu_ps(c1 + 16);
+         vc2 = _mm_loadu_ps(c2 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 16, vc1);
+         _mm_storeu_ps(c2 + 16, vc2);
+
+         // Offset 20
+         vt1 = _mm_loadu_ps(a1 + 20);
+         vc1 = _mm_loadu_ps(c1 + 20);
+         vc2 = _mm_loadu_ps(c2 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 20, vc1);
+         _mm_storeu_ps(c2 + 20, vc2);
+
+         // Offset 24
+         vt1 = _mm_loadu_ps(a1 + 24);
+         vc1 = _mm_loadu_ps(c1 + 24);
+         vc2 = _mm_loadu_ps(c2 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 + 24, vc1);
+         _mm_storeu_ps(c2 + 24, vc2);
+
+         // Offset 28
+         vt1 = _mm_loadu_ps(a1 + 28);
+         a1 += 32;
+         vc1 = _mm_loadu_ps(c1 + 28);
+         c1 += 32;
+         vc2 = _mm_loadu_ps(c2 + 28);
+         c2 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 - 4, vc1);
+         _mm_storeu_ps(c2 - 4, vc2);
+        }
+
+       for (; i < (m / 4) * 4; i += 4)
+        {
+         vt1 = _mm_loadu_ps(a1);
+         a1 += 4;
+         vc1 = _mm_loadu_ps(c1);
+         c1 += 4;
+         vc2 = _mm_loadu_ps(c2);
+         c2 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(vt1, va1));
+         vc2 = _mm_add_ps(vc2, _mm_mul_ps(vt1, vb1));
+         _mm_storeu_ps(c1 - 4, vc1);
+         _mm_storeu_ps(c2 - 4, vc2);
+        }
+
+       for (; i < m; i++)
+        {
+         float sum1, sum2, fa1;
+         fa1 = *a1;
+         sum1 = fa1 * (*(aj + km));
+         sum2 = fa1 * (*(aj + km + 1));
+         a1++;
+
+         *(ci + i) += sum1;
+         *(ci + i + m) += sum2;
+        }
       }
 
-     for (; i < m; i++)
-      {
-       float sum = (*a1) * (*(aj + km));
-       sum += (*a2) * (*(aj + km + m));
-       a1++;
-       sum += (*a3) * (*(aj + km + 2 * m));
-       a2++;
-       sum += (*a4) * (*(aj + km + 3 * m));
-       a3++;
-       sum += (*a5) * (*(aj + km + 4 * m));
-       a4++;
-       *(ci + i) += sum;
-       a5++;
-      }
     }
 
-   for (; k < n; k++)
+#pragma omp for schedule(dynamic, 1)
+   for (int j = (m / 2) * 2; j < m; j++)
     {
-     int km = k * m;
-     va1 = _mm_load1_ps(aj + km);
-     float* ai = A + km;
-     c1 = ci;
-     a1 = ai;
+     float *a1, *a2, *a3, *a4, *c1;
+     float* const aj = A + j;
+     float* const ci = C + j * m;
 
-     int i;
-     for (i = 0; i < (m / 32) * 32; i += 32)
+     int k;
+     for (k = 0; k < (n / 4) * 4; k += 4)
       {
-       // va2, va3, va4, va5 may be used as temp here
-       vc1 = _mm_loadu_ps(c1);
-       va2 = _mm_mul_ps(_mm_loadu_ps(a1), va1);
-       vc1 = _mm_add_ps(vc1, va2);
-       _mm_storeu_ps(c1, vc1);
+       int const km = k * m;
+       __m128 vc1;
+       __m128 va1 = _mm_load1_ps(aj + km);
+       __m128 va2 = _mm_load1_ps(aj + km + m);
+       __m128 va3 = _mm_load1_ps(aj + km + 2 * m);
+       __m128 va4 = _mm_load1_ps(aj + km + 3 * m);
 
-       vc2 = _mm_loadu_ps(c1 + 4);
-       va3 = _mm_mul_ps(_mm_loadu_ps(a1 + 4), va1);
-       vc2 = _mm_add_ps(vc2, va3);
-       _mm_storeu_ps(c1 + 4, vc2);
+       float* const ai = A + km;
+       c1 = ci;
+       a1 = ai;
+       a2 = ai + m;
+       a3 = ai + 2 * m;
+       a4 = ai + 3 * m;
 
-       vc1 = _mm_loadu_ps(c1 + 8);
-       va4 = _mm_mul_ps(_mm_loadu_ps(a1 + 8), va1);
-       vc1 = _mm_add_ps(vc1, va4);
-       _mm_storeu_ps(c1 + 8, vc1);
+       int i;
+       for (i = 0; i < (m / 32) * 32; i += 32)
+        {
+         vc1 = _mm_loadu_ps(c1);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4), va4));
+         _mm_storeu_ps(c1, vc1);
 
-       vc2 = _mm_loadu_ps(c1 + 12);
-       va5 = _mm_mul_ps(_mm_loadu_ps(a1 + 12), va1);
-       vc2 = _mm_add_ps(vc2, va5);
-       _mm_storeu_ps(c1 + 12, vc2);
+         vc1 = _mm_loadu_ps(c1 + 4);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 4), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 4), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 4), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 4), va4));
+         _mm_storeu_ps(c1 + 4, vc1);
 
-       vc1 = _mm_loadu_ps(c1 + 16);
-       va2 = _mm_mul_ps(_mm_loadu_ps(a1 + 16), va1);
-       vc1 = _mm_add_ps(vc1, va2);
-       _mm_storeu_ps(c1 + 16, vc1);
+         vc1 = _mm_loadu_ps(c1 + 8);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 8), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 8), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 8), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 8), va4));
+         _mm_storeu_ps(c1 + 8, vc1);
 
-       vc2 = _mm_loadu_ps(c1 + 20);
-       va3 = _mm_mul_ps(_mm_loadu_ps(a1 + 20), va1);
-       vc2 = _mm_add_ps(vc2, va3);
-       _mm_storeu_ps(c1 + 20, vc2);
+         vc1 = _mm_loadu_ps(c1 + 12);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 12), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 12), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 12), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 12), va4));
+         _mm_storeu_ps(c1 + 12, vc1);
 
-       vc1 = _mm_loadu_ps(c1 + 24);
-       va4 = _mm_mul_ps(_mm_loadu_ps(a1 + 24), va1);
-       vc1 = _mm_add_ps(vc1, va4);
-       _mm_storeu_ps(c1 + 24, vc1);
+         vc1 = _mm_loadu_ps(c1 + 16);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 16), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 16), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 16), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 16), va4));
+         _mm_storeu_ps(c1 + 16, vc1);
 
-       vc2 = _mm_loadu_ps(c1 + 28);
-       va5 = _mm_mul_ps(_mm_loadu_ps(a1 + 28), va1);
-       a1 += 32;
-       vc2 = _mm_add_ps(vc2, va5);
-       _mm_storeu_ps(c1 + 28, vc2);
-       c1 += 32;
+         vc1 = _mm_loadu_ps(c1 + 20);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 20), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 20), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 20), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 20), va4));
+         _mm_storeu_ps(c1 + 20, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 24);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 24), va1));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 24), va2));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 24), va3));
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 24), va4));
+         _mm_storeu_ps(c1 + 24, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 28);
+         c1 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1 + 28), va1));
+         a1 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2 + 28), va2));
+         a2 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3 + 28), va3));
+         a3 += 32;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4 + 28), va4));
+         a4 += 32;
+         _mm_storeu_ps(c1 - 4, vc1);
+
+        }
+
+       for (; i < (m / 4) * 4; i += 4)
+        {
+         vc1 = _mm_loadu_ps(c1);
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a1), va1));
+         a1 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a2), va2));
+         a2 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a3), va3));
+         a3 += 4;
+         vc1 = _mm_add_ps(vc1, _mm_mul_ps(_mm_loadu_ps(a4), va4));
+         a4 += 4;
+         _mm_storeu_ps(c1, vc1);
+         c1 += 4;
+        }
+
+       for (; i < m; i++)
+        {
+         float sum = (*a1) * (*(aj + km)); // THIS CALL MISSES A LOT
+         sum += (*a2) * (*(aj + km + m));
+         a1++;
+         sum += (*a3) * (*(aj + km + 2 * m));
+         a2++;
+         sum += (*a4) * (*(aj + km + 3 * m));
+         a3++;
+         a4++;
+         *(ci + i) += sum;
+        }
       }
 
-     for (; i < (m / 4) * 4; i += 4)
+     for (; k < n; k++)
       {
-       vc2 = _mm_loadu_ps(c1);
-       va3 = _mm_loadu_ps(a1);
-       a1 += 4;
-       va4 = _mm_mul_ps(va3, va1);
-       vc2 = _mm_add_ps(vc2, va4);
-       _mm_storeu_ps(c1, vc2);
-       c1 += 4;
-      }
+       int const km = k * m;
+       __m128 vc1, va2, va3, va4, va5;
+       __m128 va1 = _mm_load1_ps(aj + km);
+       c1 = ci;
+       a1 = A + km;
 
-     for (; i < m; i++)
-      {
-       *(ci + i) += (*a1) * (*(aj + km));
-       a1++;
+       int i;
+       for (i = 0; i < (m / 32) * 32; i += 32)
+        {
+         // va2, va3, va4, va5 may be used as temp here
+         vc1 = _mm_loadu_ps(c1);
+         va2 = _mm_mul_ps(_mm_loadu_ps(a1), va1);
+         vc1 = _mm_add_ps(vc1, va2);
+         _mm_storeu_ps(c1, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 4);
+         va3 = _mm_mul_ps(_mm_loadu_ps(a1 + 4), va1);
+         vc1 = _mm_add_ps(vc1, va3);
+         _mm_storeu_ps(c1 + 4, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 8);
+         va4 = _mm_mul_ps(_mm_loadu_ps(a1 + 8), va1);
+         vc1 = _mm_add_ps(vc1, va4);
+         _mm_storeu_ps(c1 + 8, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 12);
+         va5 = _mm_mul_ps(_mm_loadu_ps(a1 + 12), va1);
+         vc1 = _mm_add_ps(vc1, va5);
+         _mm_storeu_ps(c1 + 12, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 16);
+         va2 = _mm_mul_ps(_mm_loadu_ps(a1 + 16), va1);
+         vc1 = _mm_add_ps(vc1, va2);
+         _mm_storeu_ps(c1 + 16, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 20);
+         va3 = _mm_mul_ps(_mm_loadu_ps(a1 + 20), va1);
+         vc1 = _mm_add_ps(vc1, va3);
+         _mm_storeu_ps(c1 + 20, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 24);
+         va4 = _mm_mul_ps(_mm_loadu_ps(a1 + 24), va1);
+         vc1 = _mm_add_ps(vc1, va4);
+         _mm_storeu_ps(c1 + 24, vc1);
+
+         vc1 = _mm_loadu_ps(c1 + 28);
+         c1 += 32;
+         va5 = _mm_mul_ps(_mm_loadu_ps(a1 + 28), va1);
+         a1 += 32;
+         vc1 = _mm_add_ps(vc1, va5);
+         _mm_storeu_ps(c1 - 4, vc1);
+        }
+
+       for (; i < (m / 4) * 4; i += 4)
+        {
+         vc1 = _mm_loadu_ps(c1);
+         va3 = _mm_loadu_ps(a1);
+         a1 += 4;
+         va4 = _mm_mul_ps(va3, va1);
+         vc1 = _mm_add_ps(vc1, va4);
+         _mm_storeu_ps(c1, vc1);
+         c1 += 4;
+        }
+
+       for (; i < m; i++)
+        {
+         *(ci + i) += (*a1) * (*(aj + km));
+         a1++;
+        }
       }
     }
   }
