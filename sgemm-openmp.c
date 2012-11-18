@@ -22,18 +22,19 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
      int k;
      for (k = 0; k < (n / 4) * 4; k += 4)
       {
-       int const km = k * m;
+       float* const ajkm = aj + k * m;
+       float* const ai = A + k * m;
+       
        __m128 vc1, vc2, vt1, vt2;
-       __m128 va1 = _mm_load1_ps(aj + km);
-       __m128 vb1 = _mm_load1_ps(aj + km + 1);
-       __m128 va2 = _mm_load1_ps(aj + km + m);
-       __m128 vb2 = _mm_load1_ps(aj + km + m + 1);
-       __m128 va3 = _mm_load1_ps(aj + km + 2 * m);
-       __m128 vb3 = _mm_load1_ps(aj + km + 2 * m + 1);
-       __m128 va4 = _mm_load1_ps(aj + km + 3 * m);
-       __m128 vb4 = _mm_load1_ps(aj + km + 3 * m + 1);
+       __m128 va1 = _mm_load1_ps(ajkm);
+       __m128 vb1 = _mm_load1_ps(ajkm + 1);
+       __m128 va2 = _mm_load1_ps(ajkm + m);
+       __m128 vb2 = _mm_load1_ps(ajkm + m + 1);
+       __m128 va3 = _mm_load1_ps(ajkm + 2 * m);
+       __m128 vb3 = _mm_load1_ps(ajkm + 2 * m + 1);
+       __m128 va4 = _mm_load1_ps(ajkm + 3 * m);
+       __m128 vb4 = _mm_load1_ps(ajkm + 3 * m + 1);
 
-       float* const ai = A + km;
        c1 = ci;
        c2 = ci + m;
 
@@ -231,39 +232,43 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
        for (; i < m; i++)
         {
          float sum1, sum2, fa1, fa2, fa3, fa4;
+         
          fa1 = *a1;
-         sum1 = fa1 * (*(aj + km));
-         sum2 = fa1 * (*(aj + km + 1));
          a1++;
+         sum1 = fa1 * (*(ajkm));
+         sum2 = fa1 * (*(ajkm + 1));
 
          fa2 = *a2;
-         sum1 += fa2 * (*(aj + km + m));
-         sum2 += fa2 * (*(aj + km + m + 1));
          a2++;
+         sum1 += fa2 * (*(ajkm + m));
+         sum2 += fa2 * (*(ajkm + m + 1));
 
          fa3 = *a3;
-         sum1 += fa3 * (*(aj + km + 2 * m));
-         sum2 += fa3 * (*(aj + km + 2 * m + 1));
          a3++;
+         sum1 += fa3 * (*(ajkm + 2 * m));
+         sum2 += fa3 * (*(ajkm + 2 * m + 1));
 
          fa4 = *a4;
-         sum1 += fa4 * (*(aj + km + 3 * m));
-         sum2 += fa4 * (*(aj + km + 3 * m + 1));
          a4++;
-         *(ci + i) += sum1;
-         *(ci + i + m) += sum2;
+         sum1 += fa4 * (*(ajkm + 3 * m));
+         sum2 += fa4 * (*(ajkm + 3 * m + 1));
+
+         *(c1) += sum1;
+         c1++;
+         *(c2) += sum2;
+         c2++;
         }
       }
 
      for (; k < n; k++)
       {
-       int const km = k * m;
+       float* const ajkm = aj + k * m;
+       a1 = A + k * m;
        __m128 vc1, vc2, vt1, vt2;
-       __m128 va1 = _mm_load1_ps(aj + km);
-       __m128 vb1 = _mm_load1_ps(aj + km + 1);
+       __m128 va1 = _mm_load1_ps(ajkm);
+       __m128 vb1 = _mm_load1_ps(ajkm + 1);
        c1 = ci;
        c2 = ci + m;
-       a1 = A + km;
 
        int i;
        for (i = 0; i < (m / 32) * 32; i += 32)
@@ -362,12 +367,14 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
         {
          float sum1, sum2, fa1;
          fa1 = *a1;
-         sum1 = fa1 * (*(aj + km));
-         sum2 = fa1 * (*(aj + km + 1));
+         sum1 = fa1 * (*(ajkm));
+         sum2 = fa1 * (*(ajkm + 1));
          a1++;
 
-         *(ci + i) += sum1;
-         *(ci + i + m) += sum2;
+         *(c1) += sum1;
+         c1++;
+         *(c2) += sum2;
+         c2++;
         }
       }
 
@@ -383,14 +390,14 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
      int k;
      for (k = 0; k < (n / 4) * 4; k += 4)
       {
-       int const km = k * m;
+       float* const ajkm = aj + k * m;
+       float* const ai = A + k * m;
        __m128 vc1;
-       __m128 va1 = _mm_load1_ps(aj + km);
-       __m128 va2 = _mm_load1_ps(aj + km + m);
-       __m128 va3 = _mm_load1_ps(aj + km + 2 * m);
-       __m128 va4 = _mm_load1_ps(aj + km + 3 * m);
+       __m128 va1 = _mm_load1_ps(ajkm);
+       __m128 va2 = _mm_load1_ps(ajkm + m);
+       __m128 va3 = _mm_load1_ps(ajkm + 2 * m);
+       __m128 va4 = _mm_load1_ps(ajkm + 3 * m);
 
-       float* const ai = A + km;
        c1 = ci;
        a1 = ai;
        a2 = ai + m;
@@ -480,12 +487,12 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
 
        for (; i < m; i++)
         {
-         float sum = (*a1) * (*(aj + km)); // THIS CALL MISSES A LOT
-         sum += (*a2) * (*(aj + km + m));
+         float sum = (*a1) * (*(ajkm)); // THIS CALL MISSES A LOT
+         sum += (*a2) * (*(ajkm + m));
          a1++;
-         sum += (*a3) * (*(aj + km + 2 * m));
+         sum += (*a3) * (*(ajkm + 2 * m));
          a2++;
-         sum += (*a4) * (*(aj + km + 3 * m));
+         sum += (*a4) * (*(ajkm + 3 * m));
          a3++;
          a4++;
          *(ci + i) += sum;
@@ -494,11 +501,11 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
 
      for (; k < n; k++)
       {
-       int const km = k * m;
+       float* const ajkm = aj + k * m;
        __m128 vc1, va2, va3, va4, va5;
-       __m128 va1 = _mm_load1_ps(aj + km);
+       __m128 va1 = _mm_load1_ps(ajkm);
        c1 = ci;
-       a1 = A + km;
+       a1 = A + k*m;
 
        int i;
        for (i = 0; i < (m / 32) * 32; i += 32)
@@ -560,7 +567,7 @@ sgemm(const int m, const int n, float* const __restrict__ A, float* const __rest
 
        for (; i < m; i++)
         {
-         *(ci + i) += (*a1) * (*(aj + km));
+         *(ci + i) += (*a1) * (*(ajkm));
          a1++;
         }
       }
