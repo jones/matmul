@@ -1,1 +1,9 @@
-CS61C Project 3: Parallel Matrix Multiplication
+CS61C Project 3: Optimizing Single Precision Matrix Multiplication
+
+Single-thread code for part 1 is in sgemm-small.c
+It performs at about 10.9 Gflop/s.
+
+Parallel code for part 2 is in sgemm-openmp.c
+It performs at about 13.1 Gflop/s single-thread; ~95 Gflop/s with 8 threads.
+
+All benchmarks were performed on hive servers in 330 Soda, with Intel Xeon E5620 processors (2.4 GHz, 12MB Cache).
